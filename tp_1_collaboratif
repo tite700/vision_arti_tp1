@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import argparse
 
 repertoire_source = "/home/baptiste/vision_arti/TP1/Images/" #on va chercher les images ici
-repertoire_cible = "/home/baptiste/vision_arti/TP1/Images_gris/" #on traite les images et on les convertir en niveaux de gris puis on les dépose ici
+repertoire_cible = "/home/baptiste/vision_arti/TP1/Images_resultantes/" #on traite les images puis on les dépose ici
 dossiers_source = ["Chambre", "Cuisine", "Salon"]
 
 for dossier in dossiers_source:
@@ -19,9 +19,21 @@ for dossier in dossiers_source:
     for fichier in os.listdir(chemin_dossier_source):
         if fichier.endswith(".JPG") or fichier.endswith(".jpg"):
             #on lit l'image (et la retailler pour que je puisse l'ouvrir sur mon ecran)
-            image = cv2.imread(os.path.join(chemin_dossier_source, fichier), 0)
+            image = cv2.imread(os.path.join(chemin_dossier_source, fichier), 0) # le 0 permet de lire l'image en niveaux de gris
             image = cv2.resize(image, (0, 0), fx=0.1, fy=0.1)
 
             #pareil, cette image nous servira pour etre comparee avec les autres
-            image_reference = cv2.imread(os.path.join(repertoire_source, dossier, "Reference.JPG"), 0)
+            image_reference = cv2.imread(os.path.join(repertoire_source, dossier, "Reference.JPG"), 0) # le 0 permet de lire l'image en niveaux de gris
             image_reference = cv2.resize(image_reference, (0, 0), fx=0.1, fy=0.1)
+
+
+            x_offset = 10
+            y_offset = 10
+            cv2.imshow("Image de base", image)
+            cv2.imshow("Image de Référence", image_reference)
+            cv2.moveWindow("Image de Référence", x_offset, y_offset)
+            cv2.moveWindow("Image de base", x_offset * 2 + image_reference.shape[1], y_offset)
+
+            cv2.waitKey(0)
+
+cv2.destroyAllWindows()
