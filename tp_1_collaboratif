@@ -1,0 +1,28 @@
+import cv2
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import argparse
+
+repertoire_source = "/home/baptiste/vision_arti/TP1/Images/" #on va chercher les images ici
+repertoire_cible = "/home/baptiste/vision_arti/TP1/Images_gris/" #on traite les images et on les convertir en niveaux de gris puis on les dépose ici
+dossiers_source = ["Chambre", "Cuisine", "Salon"]
+
+for dossier in dossiers_source:
+    #on cree le chemin du dossier source
+    chemin_dossier_source = os.path.join(repertoire_source, dossier)
+    #on cree le chemin du dossier cible
+    chemin_dossier_cible = os.path.join(repertoire_cible, dossier)
+    #on cree les deux dossiers
+    os.makedirs(chemin_dossier_cible, exist_ok=True)
+
+    for fichier in os.listdir(chemin_dossier_source):
+        if fichier.endswith(".JPG") or fichier.endswith(".jpg"):
+            #on lit l'image (et la retailler pour que je puisse l'ouvrir sur mon ecran)
+            image = cv2.imread(os.path.join(chemin_dossier_source, fichier), 0)
+            image_
+            image = cv2.resize(image, (0, 0), fx=0.1, fy=0.1)
+
+            #
+            image_reference = cv2.imread(os.path.join(repertoire_source, dossier, "Reference.JPG"), 0)
+            image_reference = cv2.resize(image_reference, (0, 0), fx=0.1, fy=0.1)
