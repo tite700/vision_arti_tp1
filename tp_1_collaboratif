@@ -20,9 +20,8 @@ for dossier in dossiers_source:
         if fichier.endswith(".JPG") or fichier.endswith(".jpg"):
             #on lit l'image (et la retailler pour que je puisse l'ouvrir sur mon ecran)
             image = cv2.imread(os.path.join(chemin_dossier_source, fichier), 0)
-            image_
             image = cv2.resize(image, (0, 0), fx=0.1, fy=0.1)
 
-            #
+            #pareil, cette image nous servira pour etre comparee avec les autres
             image_reference = cv2.imread(os.path.join(repertoire_source, dossier, "Reference.JPG"), 0)
             image_reference = cv2.resize(image_reference, (0, 0), fx=0.1, fy=0.1)
