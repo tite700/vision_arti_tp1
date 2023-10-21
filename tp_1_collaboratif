@@ -18,21 +18,89 @@ for dossier in dossiers_source:
 
     for fichier in os.listdir(chemin_dossier_source):
         if fichier.endswith(".JPG") or fichier.endswith(".jpg"):
+
             #on lit l'image (et la retailler pour que je puisse l'ouvrir sur mon ecran)
+            image_couleur = cv2.imread(os.path.join(chemin_dossier_source, fichier))
+            image_couleur = cv2.resize(image_couleur, (0, 0), fx=0.1, fy=0.1)
             image = cv2.imread(os.path.join(chemin_dossier_source, fichier), 0) # le 0 permet de lire l'image en niveaux de gris
             image = cv2.resize(image, (0, 0), fx=0.1, fy=0.1)
 
             #pareil, cette image nous servira pour etre comparee avec les autres
+            image_reference_couleur = cv2.imread(os.path.join(repertoire_source, dossier, "Reference.JPG"))
+            image_reference_couleur = cv2.resize(image_reference_couleur, (0, 0), fx=0.1, fy=0.1)
             image_reference = cv2.imread(os.path.join(repertoire_source, dossier, "Reference.JPG"), 0) # le 0 permet de lire l'image en niveaux de gris
             image_reference = cv2.resize(image_reference, (0, 0), fx=0.1, fy=0.1)
 
+            #on traite les images pour ameliorer le seuillage d'otsu et le seuillage adaptatif :
 
-            x_offset = 10
-            y_offset = 10
-            cv2.imshow("Image de base", image)
-            cv2.imshow("Image de Référence", image_reference)
-            cv2.moveWindow("Image de Référence", x_offset, y_offset)
-            cv2.moveWindow("Image de base", x_offset * 2 + image_reference.shape[1], y_offset)
+            #on floute les images
+            image = cv2.GaussianBlur(image, (5, 5), 0)
+            image_reference = cv2.GaussianBlur(image_reference, (5, 5), 0)
+
+            #on normalise l'intensite des images et on applique un filtre d'egalisation d'histogramme
+            image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
+            image_reference = cv2.normalize(image_reference, None, 0, 255, cv2.NORM_MINMAX)
+            
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            image = clahe.apply(image)
+            image_reference = clahe.apply(image_reference)
+
+            #on ajuste le contraste des images
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(image)
+            image_contrast_adjusted = cv2.convertScaleAbs(image, alpha=255.0 / (max_val - min_val), beta=-min_val * 255.0 / (max_val - min_val))
+            min_val_ref, max_val_ref, min_loc_ref, max_loc_ref = cv2.minMaxLoc(image_reference)
+            image_reference_contrast_adjusted = cv2.convertScaleAbs(image_reference, alpha=255.0 / (max_val_ref - min_val_ref), beta=-min_val_ref * 255.0 / (max_val_ref - min_val_ref))
+
+
+            #on seuille les images
+            _, image_seuillee = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            _, image_reference_seuillee = cv2.threshold(image_reference, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+            #on applique un filtre morphologique pour enlever le bruit
+            kernel = np.ones((5, 5), np.uint8)
+            image_seuillee = cv2.morphologyEx(image_seuillee, cv2.MORPH_CLOSE, kernel)
+            image_reference_seuillee = cv2.morphologyEx(image_reference_seuillee, cv2.MORPH_CLOSE, kernel)
+
+            
+ 
+            #on detecte les differences entres chaque image et leur reference
+            image_difference = cv2.absdiff(image_reference_seuillee, image_seuillee)   
+
+            #on applique un filtre morphologique pour enlever le bruit
+            image_difference = cv2.morphologyEx(image_difference, cv2.MORPH_CLOSE, kernel)
+
+            # Trouver les contours dans l'image de différence
+            contours, _ = cv2.findContours(image_difference, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            # Copiez l'image de base pour dessiner les rectangles
+            image_resultat = cv2.imread(os.path.join(chemin_dossier_source, fichier))
+            image_resultat = cv2.resize(image_resultat, (0, 0), fx=0.1, fy=0.1)
+
+            # Dessiner des rectangles rouges autour des objets majoritairement blancs dans l'image de différence
+            for contour in contours:
+                (x, y, w, h) = cv2.boundingRect(contour)
+
+                
+                taille_minimale = 22
+
+                if w >= taille_minimale and h >= taille_minimale:
+                    roi = image_difference[y:y+h, x:x+w]
+                    pourcent_pb = (np.sum(roi == 255) / (w * h)) * 100
+                    seuil_pourcent_pb = 0.9
+                    if pourcent_pb >= seuil_pourcent_pb:
+                        cv2.rectangle(image_resultat, (x, y), (x + w, y + h), (0, 0, 255), 2)
+
+            #on affiche les images
+            cv2.imshow("Image de base", image_couleur)
+            cv2.imshow("Image de Référence", image_reference_couleur)
+            cv2.imshow("Image difference", image_difference)
+            cv2.imshow("Image resultante", image_resultat)
+
+            cv2.moveWindow("Image de Référence", 10, 10)
+            cv2.moveWindow("Image de base", 10 + image_reference.shape[1], 10)
+            cv2.moveWindow("Image difference", 10 + image_reference.shape[1] * 2, 10)
+            cv2.moveWindow("Image resultante", 10, 10 + image_reference.shape[0] + 10)
+
 
             cv2.waitKey(0)
 
