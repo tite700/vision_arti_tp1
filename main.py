@@ -103,15 +103,49 @@ def remove_shadow_from_img(img):
     return result_img
 
 
-def detection_algorithm_simple(ref_img, img):
+def mask_for_chambre(img):
+    img = cv2.resize(img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
+
+    # Use a circle for the mask
+    mask = np.zeros(img.shape[:2], dtype="uint8")
+    cv2.circle(mask, (700, 450), 300, (255, 0, 0), -1)
+
+    # Mask the image
+    masked = cv2.bitwise_and(img, img, mask=mask)
+
+    return masked
+
+
+def mask_for_cuisine(img):
+    img = cv2.resize(img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
+
+    mask = np.zeros(img.shape[:2], dtype="uint8")
+    cv2.rectangle(mask, (375, 375), (850, 1000), (255, 0, 0), -1)
+
+    masked = cv2.bitwise_and(img, img, mask=mask)
+
+    return masked
+
+
+def mask_for_salon(img):
+    img = cv2.resize(img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
+
+    mask = np.zeros(img.shape[:2], dtype="uint8")
+    cv2.rectangle(mask, (100, 450), (1100, 1000), (255, 0, 0), -1)
+
+    masked = cv2.bitwise_and(img, img, mask=mask)
+
+    return masked
+
+
+def detection_algorithm_simple(ref_img, img, original_img):
     """Simple detection algorithm"""
 
     # resize the image
-    resized_img = cv2.resize(img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
-    resized_ref_img = cv2.resize(ref_img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
+    resized_original_img = cv2.resize(original_img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
 
-    img_without_shadow = remove_shadow_from_img(resized_img)
-    ref_img_without_shadow = remove_shadow_from_img(resized_ref_img)
+    img_without_shadow = remove_shadow_from_img(img)
+    ref_img_without_shadow = remove_shadow_from_img(ref_img)
 
     # Convert bgr to gray
     img_gray = cv2.cvtColor(img_without_shadow, cv2.COLOR_BGR2GRAY)
@@ -124,164 +158,54 @@ def detection_algorithm_simple(ref_img, img):
     diff_img = cv2.absdiff(blur_img, blur_ref_img)
 
     # Apply a binary threshold
-    _, thresh_img = cv2.threshold(diff_img, 0, 255,cv2.THRESH_BINARY |cv2.THRESH_OTSU)
+    _, thresh_img = cv2.threshold(diff_img, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     dilated_img = cv2.dilate(thresh_img, np.ones((15, 15), np.uint8))
 
-    cv2.imshow("difference image", dilated_img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-
-    return_img = draw_bin_boxes(dilated_img, resized_img)
+    return_img = draw_bin_boxes(dilated_img, resized_original_img)
 
     return return_img
-
-def detection_algorithm(ref_img, img):
-    # resize the image
-    resized_img = cv2.resize(img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
-    resized_ref_img = cv2.resize(ref_img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
-
-    # Convert bgr to gray
-    img_gray = cv2.cvtColor(resized_img, cv2.COLOR_BGR2GRAY)
-    ref_img_gray = cv2.cvtColor(resized_ref_img, cv2.COLOR_BGR2GRAY)
-
-    blur_img = cv2.medianBlur(img_gray, 25)
-    th2 = cv2.adaptiveThreshold(blur_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 25, 2)
-    dilated_img = cv2.dilate(th2, np.ones((25, 25), np.uint8))
-
-    blur_ref_img = cv2.medianBlur(ref_img_gray, 25)
-    th3 = cv2.adaptiveThreshold(blur_ref_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 25, 2)
-    dilated_ref = cv2.dilate(th3, np.ones((25, 25), np.uint8))
-
-    diff_dilate_img = cv2.absdiff(dilated_ref, dilated_img)
-
-    contours, hierarchy = cv2.findContours(diff_dilate_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    cv2.drawContours(img_gray, contours, -1, (0, 255, 0), 3)
-
-    # Draw the bounding box
-    for c in contours:
-        rect = cv2.boundingRect(c)
-        area = cv2.contourArea(c)
-        print(area)
-        if area < 1200:
-            print(f'area to short: {area}')
-            continue
-        x, y, w, h = rect
-        cv2.rectangle(resized_img, (x, y), (x+w, y+h), (255, 0, 0), 2)
-
-    return resized_img
-
-
-def detection_algorithm_otsu(ref_img, img):
-    # resize the image
-    resized_img = cv2.resize(img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
-    resized_ref_img = cv2.resize(ref_img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
-
-    # remove the shadow in the image
-    rgb_planes = cv2.split(resized_img)
-
-    result_planes = []
-    result_norm_planes = []
-    for plane in rgb_planes:
-        dilated_img = cv2.dilate(plane, np.ones((7, 7), np.uint8))
-        bg_img = cv2.medianBlur(dilated_img, 21)
-        diff_img = 255 - cv2.absdiff(plane, bg_img)
-        norm_img = cv2.normalize(diff_img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
-        result_planes.append(diff_img)
-        result_norm_planes.append(norm_img)
-
-    result_img = cv2.merge(result_planes)
-    result_norm_img = cv2.merge(result_norm_planes)
-
-    # Remove the shadow in the reference image
-    rgb_planes = cv2.split(resized_ref_img)
-
-    result_planes = []
-    result_norm_planes = []
-    for plane in rgb_planes:
-        dilated_img = cv2.dilate(plane, np.ones((7, 7), np.uint8))
-        bg_img = cv2.medianBlur(dilated_img, 21)
-        diff_img = 255 - cv2.absdiff(plane, bg_img)
-        norm_img = cv2.normalize(diff_img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
-        result_planes.append(diff_img)
-        result_norm_planes.append(norm_img)
-
-    result_ref_img = cv2.merge(result_planes)
-    result_norm_ref_img = cv2.merge(result_norm_planes)
-
-    # Convert bgr to gray
-    img_gray = cv2.cvtColor(result_img, cv2.COLOR_BGR2GRAY)
-    ref_img_gray = cv2.cvtColor(result_ref_img, cv2.COLOR_BGR2GRAY)
-
-    blur_img = cv2.medianBlur(img_gray, 15)
-
-    blur_ref_img = cv2.medianBlur(ref_img_gray, 15)
-
-    diff_blur_img = cv2.absdiff(blur_img, blur_ref_img)
-
-    _, th = cv2.threshold(diff_blur_img,0,255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    dilated_img = cv2.dilate(th, np.ones((17, 17), np.uint8))
-
-    contours, hierarchy = cv2.findContours(dilated_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    cv2.drawContours(img_gray, contours, -1, (0, 255, 0), 3)
-
-    # Draw the bounding box
-    for c in contours:
-        rect = cv2.boundingRect(c)
-        area = cv2.contourArea(c)
-        print(area)
-        if area < 1200 or area > 25000:
-            print(f'area to short: {area}')
-            continue
-        x, y, w, h = rect
-        cv2.rectangle(resized_img, (x, y), (x+w, y+h), (255, 0, 0), 2)
-
-    return resized_img
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     # Load the data
     chambre_imgs, cuisine_imgs, salon_imgs  = load_data()
-
-    # Resize the image
-    # chambre_imgs = resize_image(chambre_imgs)
-    # cuisine_imgs = resize_image(cuisine_imgs)
-    # salon_imgs = resize_image(salon_imgs)
-    #
-    # # Convert to gray
-    # chambre_imgs = convert_bgr_to_gray(chambre_imgs)
-    # cuisine_imgs = convert_bgr_to_gray(cuisine_imgs)
-    # salon_imgs = convert_bgr_to_gray(salon_imgs)
-
-
+    imgs = []
 
     ref_chambre_img = chambre_imgs[0]
 
-    imgs = []
+    ref_chambre_img = mask_for_chambre(ref_chambre_img)
+
     # Select an image
-    for i in range(1, 7, 2):
+    for i in range(1, 7):
         img = chambre_imgs[i]
 
-        img = detection_algorithm_simple(ref_chambre_img, img)
+        original_img = img.copy()
+        img = mask_for_chambre(img)
+        img = detection_algorithm_simple(ref_chambre_img, img, original_img)
 
         imgs.append(img)
 
     ref_cuisine_img = cuisine_imgs[0]
+    ref_cuisine_img = mask_for_cuisine(ref_cuisine_img)
+
     for i in range(1, 4):
         img = cuisine_imgs[i]
 
-        img = detection_algorithm_simple(ref_cuisine_img, img)
+        original_img = img.copy()
+        img = mask_for_cuisine(img)
+        img = detection_algorithm_simple(ref_cuisine_img, img, original_img)
 
         imgs.append(img)
 
     ref_salon_img = salon_imgs[0]
+    ref_salon_img = mask_for_salon(ref_salon_img)
     for i in range(1, 11):
         img = salon_imgs[i]
 
-        img = detection_algorithm_simple(ref_salon_img, img)
+        original_img = img.copy()
+        img = mask_for_salon(img)
+        img = detection_algorithm_simple(ref_salon_img, img, original_img)
 
         imgs.append(img)
 
