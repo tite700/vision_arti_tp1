@@ -16,11 +16,14 @@ Ce rapport explique le fonctionnement du programme de détection d'objets dans d
        - Un seuillage adaptatif est utilisé pour détecter les différences entre l'image de référence et l'image de test.
 
 3. **Détection des Différences** :
-   - Le programme détecte les différences entre l'image de référence et l'image de test en utilisant un seuillage adaptatif.
+   - Le programme détecte les différences entre l'image de référence et l'image de test en utilisant un seuillage d'otsu.
    - Des rectangles rouges sont dessinés autour des objets dont les différences sont supérieures à un seuil.
 
 4. **Affichage des Images** :
    - Le programme affiche les images d'origine, l'image de référence, l'image de différence et l'image résultante avec les rectangles rouges.
+  
+5. **Utilisation de masques** :
+   - Nous avons mis en place des masques pour chaque pièce pour ne s'intéresser qu'aux zones utiles de celles-ci.
 
 ## Points Difficiles
 
