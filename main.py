@@ -1,70 +1,43 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
+import sys
+import os
 
 
-def load_data():
+def load_data(path):
     """Load the images and put the result in list
     the first image of the list is the reference image"""
     chambre_imgs = []
-    chambre_imgs.append(cv2.imread(".\Images\Chambre\Reference.JPG"))
+    chambre_imgs.append(cv2.imread(path + "\Images\Chambre\Reference.JPG"))
     for i in range(67, 74):
-        chambre_imgs.append(cv2.imread(f".\Images\Chambre\IMG_65{i}.JPG"))
+        chambre_imgs.append(cv2.imread(path + f"\Images\Chambre\IMG_65{i}.JPG"))
 
     cuisine_imgs = []
-    cuisine_imgs.append(cv2.imread(".\Images\Cuisine\Reference.JPG"))
+    cuisine_imgs.append(cv2.imread(path + "\Images\Cuisine\Reference.JPG"))
     for i in range(62, 66):
-        img = cv2.imread(f".\Images\Cuisine\IMG_65{i}.JPG")
-        cuisine_imgs.append(cv2.imread(f".\Images\Cuisine\IMG_65{i}.JPG"))
+        img = cv2.imread(path + f"\Images\Cuisine\IMG_65{i}.JPG")
+        cuisine_imgs.append(cv2.imread(path + f"\Images\Cuisine\IMG_65{i}.JPG"))
 
     salon_imgs = []
-    salon_imgs.append(cv2.imread(".\Images\Salon\Reference.JPG"))
+    salon_imgs.append(cv2.imread(path + "\Images\Salon\Reference.JPG"))
     for i in range(51, 61):
-         salon_imgs.append(cv2.imread(f".\Images\Salon\IMG_65{i}.JPG"))
+         salon_imgs.append(cv2.imread(path + f"\Images\Salon\IMG_65{i}.JPG"))
 
     return chambre_imgs , cuisine_imgs, salon_imgs
 
 
-def resize_image(imgs):
-    resized_imgs = []
-    for img in imgs:
-        resized_img = cv2.resize(img, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_LINEAR)
-        resized_imgs.append(resized_img)
-
-    return resized_imgs
-
-
-def convert_bgr_to_gray(imgs):
-    gray_imgs = []
-    for img in imgs:
-        gray_imgs.append(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
-
-    return gray_imgs
-
-
 def show_imgs(imgs):
+    result_dir = "Resultats"
+    os.makedirs(result_dir, exist_ok=True)
+
     for i, img in enumerate(imgs):
         cv2.imshow(f"image: {i}", img)
+        image_name = f"result_{i}.jpg"
+        image_path = os.path.join(result_dir, image_name)
+        cv2.imwrite(image_path, img)
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-
-
-def hist(img):
-    plt.hist(img.ravel(), 256, [0,256])
-    plt.xlim([0, 256])
-    plt.show()
-
-
-def show_hist_with_matplotlib_gray(hist, title, pos, color):
-    """Shows the histogram using matplotlib capabilities"""
-
-    ax = plt.subplot(2, 2, pos)
-    plt.title(title)
-    plt.xlabel("bins")
-    plt.ylabel("number of pixels")
-    plt.xlim([0, 256])
-    plt.plot(hist, color=color)
 
 
 def draw_bin_boxes(binary_img, img_to_draw):
@@ -90,8 +63,8 @@ def remove_shadow_from_img(img):
     result_planes = []
     result_norm_planes = []
     for plane in rgb_planes:
-        dilated_img = cv2.dilate(plane, np.ones((7, 7), np.uint8))
-        bg_img = cv2.medianBlur(dilated_img, 21)
+        dilated_img = cv2.dilate(plane, np.ones((9, 9), np.uint8))
+        bg_img = cv2.medianBlur(dilated_img, 23)
         diff_img = 255 - cv2.absdiff(plane, bg_img)
         norm_img = cv2.normalize(diff_img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
         result_planes.append(diff_img)
@@ -108,7 +81,7 @@ def mask_for_chambre(img):
 
     # Use a circle for the mask
     mask = np.zeros(img.shape[:2], dtype="uint8")
-    cv2.circle(mask, (700, 450), 300, (255, 0, 0), -1)
+    cv2.circle(mask, (675, 470), 275, (255, 0, 0), -1)
 
     # Mask the image
     masked = cv2.bitwise_and(img, img, mask=mask)
@@ -147,6 +120,9 @@ def detection_algorithm_simple(ref_img, img, original_img):
     img_without_shadow = remove_shadow_from_img(img)
     ref_img_without_shadow = remove_shadow_from_img(ref_img)
 
+    # cv2.imshow("img without shadow", img_without_shadow)
+    # cv2.waitKey(0)
+
     # Convert bgr to gray
     img_gray = cv2.cvtColor(img_without_shadow, cv2.COLOR_BGR2GRAY)
     ref_img_gray = cv2.cvtColor(ref_img_without_shadow, cv2.COLOR_BGR2GRAY)
@@ -155,11 +131,25 @@ def detection_algorithm_simple(ref_img, img, original_img):
     blur_img = cv2.GaussianBlur(img_gray, (25, 25), 0)
     blur_ref_img = cv2.GaussianBlur(ref_img_gray, (25, 25), 0)
 
+    # cv2.imshow("img blur", blur_img)
+    # cv2.waitKey(0)
+
     diff_img = cv2.absdiff(blur_img, blur_ref_img)
 
-    # Apply a binary threshold
+    # cv2.imshow("diff_img", diff_img)
+    # cv2.waitKey(0)
+
     _, thresh_img = cv2.threshold(diff_img, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+
+    # cv2.imshow("thresh_img", thresh_img)
+    # cv2.waitKey(0)
+
     dilated_img = cv2.dilate(thresh_img, np.ones((15, 15), np.uint8))
+
+    # cv2.imshow("dilated_img", dilated_img)
+    # cv2.waitKey(0)
+
+    # cv2.destroyAllWindows()
 
     return_img = draw_bin_boxes(dilated_img, resized_original_img)
 
@@ -168,8 +158,14 @@ def detection_algorithm_simple(ref_img, img, original_img):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    # get the path
+    if len(sys.argv) > 1:
+        path = sys.argv[1]
+    else:
+        path = "."
+
     # Load the data
-    chambre_imgs, cuisine_imgs, salon_imgs  = load_data()
+    chambre_imgs, cuisine_imgs, salon_imgs  = load_data(path)
     imgs = []
 
     ref_chambre_img = chambre_imgs[0]
@@ -210,62 +206,3 @@ if __name__ == '__main__':
         imgs.append(img)
 
     show_imgs(imgs)
-
-'''
-    img = chambre_imgs[5]
-    img = cv2.medianBlur(img, 25)
-    th2 = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 13, 2)
-    dilated_img = cv2.dilate(th2, np.ones((19, 19), np.uint8))
-
-    ref_img = cv2.medianBlur(ref_img, 25)
-    th3 = cv2.adaptiveThreshold(ref_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 13, 2)
-    dilated_ref = cv2.dilate(th3, np.ones((19, 19), np.uint8))
-
-    diff_img = cv2.subtract(ref_img, img)
-    diff_dilate_img = cv2.absdiff(dilated_ref, dilated_img)
-
-    show_imgs([img, th2, dilated_img, dilated_ref, ref_img, th3, diff_img, diff_dilate_img])'''
-
-'''
-    # substract the original img
-    new_img = cv2.absdiff(chambre_imgs[0], img)
-
-    # Make the mask for the image
-    M = np.zeros(new_img.shape[:2], dtype="uint8")
-    M[new_img==10] = 255
-
-    # Equalize the histogram
-    new_img_eq = cv2.equalizeHist(new_img)
-
-    h_without_mask = cv2.calcHist([new_img], [0], None, [256], [0, 256])
-    h_with_mask = cv2.calcHist([new_img], [0], M, [256], [0, 256])
-    h_with_mask_eq = cv2.calcHist([new_img_eq], [0], M, [256], [0, 256])
-
-    show_hist_with_matplotlib_gray(h_without_mask, "Without mask", 1, 'm')
-    show_hist_with_matplotlib_gray(h_with_mask, "With mask", 2, 'b')
-    show_hist_with_matplotlib_gray(h_with_mask_eq, "With mask equalize", 3, 'm')
-    plt.show()
-
-    # Apply bilateral filter in order to reduce noise while keeping the edges sharp
-    new_img = cv2.bilateralFilter(new_img, 20, 30, 30)
-
-    # Simple thresholding of the image
-    ret1, thresh1 = cv2.threshold(new_img, 50, 255, cv2.THRESH_BINARY)
-
-    # Adaptive thresholding of the image
-    adaptive_thresh = cv2.adaptiveThreshold(new_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 2)
-
-    # ==================================================
-    # filter the ref image to make the edge sharp
-    filter_ref_img = cv2.GaussianBlur(ref_img, (25, 25), 0)
-
-    # Apply a filter to the image
-    _, thresh_ref_img = cv2.threshold(filter_ref_img, 75, 255, cv2.THRESH_BINARY)
-
-    # find the contour of the image
-    contours, hierarchy = cv2.findContours(thresh_ref_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    # draw the contour in the image
-    cv2.drawContours(ref_img, contours, -1, (0, 255, 0), 3)
-
-    show_imgs([ref_img, img, filter_ref_img, thresh_ref_img])'''
