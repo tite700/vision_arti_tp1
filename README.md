@@ -37,7 +37,7 @@ Ce rapport explique le fonctionnement du programme de détection d'objets dans d
 
 - Membre 1 : Philippe Lavoie LAVP01069901
 - Membre 2 : Baptiste David DAVB30100100
-- Membre 3 : 
-- Membre 4 : 
+- Membre 3 : Théodore Perrin PERT03090200
+- Membre 4 : Gaëlle Thibaudat
 
 N'hésitez pas à ajouter les noms complets des membres de votre groupe dans les sections appropriées.
